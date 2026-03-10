@@ -35,7 +35,8 @@ export default function Register() {
         firstName: firstName,
         lastName: lastName,
         email: email,
-      });
+        level:1,
+        });
 
       console.log('Account gefixt! ID:', user.uid);
       alert('Account succesvol aangemaakt!');

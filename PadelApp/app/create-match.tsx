@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import { PadelMatch } from '../models/PadelMatch';
 
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
+import { db,auth } from '../config/firebaseConfig';
+
 
 export default function CreateMatch() {
   const router = useRouter();
@@ -36,21 +37,25 @@ export default function CreateMatch() {
     if (club.trim() === '') { setErrorMessage('Fout: Padelclub is verplicht.'); return; }
     if (date.getTime() < new Date().getTime()) { setErrorMessage('Fout: Datum mag niet in het verleden liggen.'); return; }
 
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      setErrorMessage('Fout: Je moet ingelogd zijn om een match aan te maken.');
+      return;
+    }
     setErrorMessage('');
 
-    // Bouw het object volgens je interface
-    const newMatch: PadelMatch = {
-      minLevel: min,
-      maxLevel: max,
-      date: date.toLocaleString('nl-NL'), 
-      club: club,
-      isMixed: isMixed,
-      isCompetitive: isCompetitive,
-      players: [] 
-    };
-
     try {
-      // FIREBASE MAGIE: addDoc stopt de data in Firestore en genereert automatisch een unieke ID!
+      const newMatch: PadelMatch = {
+        minLevel: min,
+        maxLevel: max,
+        date: date.toLocaleString('nl-NL'), 
+        club: club,
+        isMixed: isMixed,
+        isCompetitive: isCompetitive,
+        players: [currentUser.uid], // De maker van de match is automatisch speler 1
+      };
+
+      // 2. addDoc stopt de data in Firestore en genereert automatisch een unieke ID!
       const docRef = await addDoc(collection(db, 'matches'), newMatch);
       
       console.log("Match opgeslagen! Firebase ID is:", docRef.id);
