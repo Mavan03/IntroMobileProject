@@ -1,149 +1,118 @@
+// Bestand: /app/create-match.tsx
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, Switch, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { PadelMatch } from '../models/PadelMatch';
 
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../config/firebaseConfig';
 
 export default function CreateMatch() {
-
   const router = useRouter();
-
-
+  
   const [minLevel, setMinLevel] = useState<string>('1.5');
   const [maxLevel, setMaxLevel] = useState<string>('4.0');
-
   const [date, setDate] = useState<Date>(new Date());
   const [showPicker, setShowPicker] = useState<boolean>(false);
-
   const [club, setClub] = useState<string>('');
   const [isMixed, setIsMixed] = useState<boolean>(false);
   const [isCompetitive, setIsCompetitive] = useState<boolean>(false);
-
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowPicker(false);
-    }
-
-    if (selectedDate) {
-      setDate(selectedDate);
-    }
+    if (Platform.OS === 'android') setShowPicker(false);
+    if (selectedDate) setDate(selectedDate);
   };
 
-  const saveMatch = () => {
+  // Functie is nu 'async' omdat we met de database praten!
+  const saveMatch = async () => {
     let min = Number(minLevel);
     let max = Number(maxLevel);
 
-    if (min > max) {
-      setErrorMessage('Fout: Min niveau mag niet groter zijn dan max niveau.');
-      return;
-    }
-
-    if (min < 0.5 || max > 7.0) {
-      setErrorMessage('Fout: Niveau moet tussen 0.5 en 7 liggen.');
-      return;
-    }
-
-    if (club.trim() === '') {
-      setErrorMessage('Fout: Padelclub is verplicht.');
-      return;
-    }
-
-    if (date.getTime() < new Date().getTime()) {
-      setErrorMessage('Fout: Datum mag niet in het verleden liggen.');
-      return;
-    }
+    // Validatie
+    if (min > max) { setErrorMessage('Fout: Min niveau mag niet groter zijn dan max niveau.'); return; }
+    if (min < 0.5 || max > 7.0) { setErrorMessage('Fout: Niveau moet tussen 0.5 en 7 liggen.'); return; }
+    if (club.trim() === '') { setErrorMessage('Fout: Padelclub is verplicht.'); return; }
+    if (date.getTime() < new Date().getTime()) { setErrorMessage('Fout: Datum mag niet in het verleden liggen.'); return; }
 
     setErrorMessage('');
 
-    // Object opbouwen volgens de interface
+    // Bouw het object volgens je interface
     const newMatch: PadelMatch = {
       minLevel: min,
       maxLevel: max,
-      date: date.toLocaleString('nl-NL'),
+      date: date.toLocaleString('nl-NL'), 
       club: club,
       isMixed: isMixed,
       isCompetitive: isCompetitive,
-      players: []
+      players: [] 
     };
 
-    console.log("Match opgeslagen:", newMatch);
-    alert('Match aangemaakt op: ' + newMatch.date);
+    try {
+      // FIREBASE MAGIE: addDoc stopt de data in Firestore en genereert automatisch een unieke ID!
+      const docRef = await addDoc(collection(db, 'matches'), newMatch);
+      
+      console.log("Match opgeslagen! Firebase ID is:", docRef.id);
+      alert('Match succesvol aangemaakt met ID: ' + docRef.id);
+      
+      router.back(); // Terug naar dashboard
+      
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error("Firebase fout:", error.message);
+        setErrorMessage('Kon match niet opslaan: ' + error.message);
+      } else {
+        setErrorMessage('Onbekende fout bij opslaan.');
+      }
+    }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
       <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>← Terug</Text>
       </TouchableOpacity>
 
       <Text style={styles.header}>Nieuwe Wedstrijd</Text>
 
-      {errorMessage !== '' && (
-        <Text style={styles.errorText}>{errorMessage}</Text>
-      )}
+      {errorMessage !== '' && <Text style={styles.errorText}>{errorMessage}</Text>}
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Datum & Tijd:</Text>
-
         <TouchableOpacity style={styles.dateButton} onPress={() => setShowPicker(true)}>
           <Text style={styles.dateButtonText}>
             {date.toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
           </Text>
         </TouchableOpacity>
-
         {showPicker && (
-          <DateTimePicker
-            value={date}
-            mode="datetime"
-            display="default"
-            minimumDate={new Date()}
-            onChange={onChangeDate}
-          />
+          <DateTimePicker value={date} mode="datetime" display="default" minimumDate={new Date()} onChange={onChangeDate} />
         )}
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Minimaal Niveau (0.5 - 7):</Text>
-        <TextInput
-          style={styles.input}
-          value={minLevel}
-          onChangeText={(text) => setMinLevel(text)}
-          keyboardType="numeric"
-        />
+        <TextInput style={styles.input} value={minLevel} onChangeText={setMinLevel} keyboardType="numeric" />
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Maximaal Niveau (0.5 - 7):</Text>
-        <TextInput
-          style={styles.input}
-          value={maxLevel}
-          onChangeText={(text) => setMaxLevel(text)}
-          keyboardType="numeric"
-        />
+        <TextInput style={styles.input} value={maxLevel} onChangeText={setMaxLevel} keyboardType="numeric" />
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Padelclub:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Naam van de club"
-          value={club}
-          onChangeText={(text) => setClub(text)}
-        />
+        <TextInput style={styles.input} placeholder="Naam van de club" value={club} onChangeText={setClub} />
       </View>
 
       <View style={styles.switchGroup}>
         <Text style={styles.label}>Gemengd (M/V)?</Text>
-        <Switch value={isMixed} onValueChange={(val) => setIsMixed(val)} />
+        <Switch value={isMixed} onValueChange={setIsMixed} />
       </View>
 
       <View style={styles.switchGroup}>
         <Text style={styles.label}>Competitief?</Text>
-        <Switch value={isCompetitive} onValueChange={(val) => setIsCompetitive(val)} />
+        <Switch value={isCompetitive} onValueChange={setIsCompetitive} />
       </View>
 
       <TouchableOpacity style={styles.button} onPress={saveMatch}>

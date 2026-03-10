@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router'; 
+
 const Dashboard: React.FC = () => {
   const router = useRouter(); 
 
@@ -13,7 +14,17 @@ const Dashboard: React.FC = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Padel Manager</Text>
+      
+      <View style={styles.topBar}>
+        <Text style={styles.header}>Padel Manager</Text>
+        
+        <TouchableOpacity 
+          style={styles.registerButton} 
+          onPress={() => router.push('/register' as any)}
+        >
+          <Text style={styles.registerButtonText}>Register</Text>
+        </TouchableOpacity>
+      </View>
       
       {banners.map((item) => (
         <TouchableOpacity 
@@ -33,11 +44,59 @@ const Dashboard: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 20, paddingTop: 60, backgroundColor: '#f5f5f5', flex: 1 },
-  header: { fontSize: 28, fontWeight: 'bold', marginBottom: 30, textAlign: 'center' },
-  banner: { padding: 25, borderRadius: 16, marginBottom: 15, elevation: 4 },
-  bannerTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  bannerDesc: { color: '#fff', fontSize: 14, opacity: 0.9, marginTop: 4 }
+  container: { 
+    padding: 20, 
+    paddingTop: 60, 
+    backgroundColor: '#f5f5f5', 
+    flex: 1 
+  },
+  
+
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30,
+    position: 'relative',
+    width: '100%',
+  },
+  header: { 
+    fontSize: 28, 
+    fontWeight: 'bold',
+    color: '#333'
+  },
+  
+  registerButton: {
+    position: 'absolute',
+    right: 0,
+    backgroundColor: '#007AFF',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+  },
+  registerButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+
+  banner: { 
+    padding: 25, 
+    borderRadius: 16, 
+    marginBottom: 15, 
+    elevation: 4 
+  },
+  bannerTitle: { 
+    color: '#fff', 
+    fontSize: 20, 
+    fontWeight: 'bold' 
+  },
+  bannerDesc: { 
+    color: '#fff', 
+    fontSize: 14, 
+    opacity: 0.9, 
+    marginTop: 4 
+  }
 });
 
 export default Dashboard;
