@@ -67,12 +67,12 @@ export default function Register() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Voornaam:</Text>
-        <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="Bijv. Mo" />
+        <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="Bijv. Renzo" />
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Achternaam:</Text>
-        <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Bijv. El Amrani" />
+        <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Bijv. Bouchdig" />
       </View>
 
       <View style={styles.inputGroup}>
