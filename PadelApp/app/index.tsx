@@ -9,7 +9,6 @@ const Dashboard: React.FC = () => {
     { id: '/create-match', title: '1. Wedstrijd Aanmaken', color: '#4CAF50', description: 'Stel een match op voor 4 spelers' },
     { id: '/book-court', title: '2. Veld Boeken', color: '#2196F3', description: 'Reserveer direct een veld' },
     { id: '/find-match', title: '3. Wedstrijd Zoeken', color: '#FF9800', description: 'Zoek matches op niveau' },
-    { id: '/messages', title: '4. Berichten', color: '#9C27B0', description: 'Chat met je teamgenoten' },
   ];
 
   return (
