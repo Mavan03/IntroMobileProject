@@ -3,7 +3,6 @@ import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity, ActivityIndi
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 
-// Dummy data voor de clubs met strakke foto's en variërende coördinaten rondom Antwerpen
 const PADEL_CLUBS = [
   {
     id: '1',
@@ -149,9 +148,7 @@ export default function ClubsList() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
-  // NIEUW: We zetten de clubs in een state zodat we ze kunnen sorteren
   const [sortedClubs, setSortedClubs] = useState<any[]>([]);
-  // NIEUW: Een laad-status zodat de lijst pas toont als de berekening klaar is
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -159,33 +156,28 @@ export default function ClubsList() {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         
-        // ALS DE GEBRUIKER LOCATIE WEIGERT:
         if (status !== 'granted') {
           setErrorMsg('Locatie geweigerd. Clubs staan in willekeurige volgorde.');
-          // Trucje om de array random door elkaar te gooien
           const randomClubs = [...PADEL_CLUBS].sort(() => Math.random() - 0.5);
           setSortedClubs(randomClubs);
           setIsLoading(false);
           return;
         }
 
-        // ALS DE GEBRUIKER LOCATIE TOESTAAT:
         let currentLocation = await Location.getCurrentPositionAsync({});
         setLocation(currentLocation);
 
         const userLat = currentLocation.coords.latitude;
         const userLng = currentLocation.coords.longitude;
 
-        // Sorteer de array op basis van de berekende afstand
         const distanceSortedClubs = [...PADEL_CLUBS].sort((a, b) => {
           const distA = parseFloat(getDistanceInKm(userLat, userLng, a.lat, a.lng));
           const distB = parseFloat(getDistanceInKm(userLat, userLng, b.lat, b.lng));
-          return distA - distB; // Laagste afstand (dichtstbij) komt bovenaan
+          return distA - distB;
         });
 
         setSortedClubs(distanceSortedClubs);
       } catch (error) {
-        // Fallback als er iets crasht tijdens locatie zoeken
         setErrorMsg('Fout bij zoeken locatie. Willekeurige volgorde.');
         setSortedClubs([...PADEL_CLUBS].sort(() => Math.random() - 0.5));
       } finally {
@@ -197,7 +189,7 @@ export default function ClubsList() {
   const renderClubCard = ({ item }: { item: any }) => {
     const distance = location
       ? getDistanceInKm(location.coords.latitude, location.coords.longitude, item.lat, item.lng)
-      : '?'; // Toon een vraagteken als locatie geweigerd is
+      : '?';
 
     return (
       <View style={styles.card}>
@@ -219,7 +211,6 @@ export default function ClubsList() {
         <Text style={styles.headerTitle}>Padelclubs</Text>
       </View>
 
-      {/* Logica: Eerst laden, en daarna de lijst tonen (met of zonder error balkje) */}
       {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#4CAF50" />
@@ -233,7 +224,6 @@ export default function ClubsList() {
             </View>
           )}
           <FlatList
-            // We gebruiken nu onze gesorteerde state in plaats van de vaste array!
             data={sortedClubs}
             keyExtractor={(item) => item.id}
             renderItem={renderClubCard}
@@ -251,22 +241,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5' 
   },
   
-  // --- HEADER STYLING FIX ---
   header: {
     paddingTop: 50, 
     paddingBottom: 15, 
     backgroundColor: '#fff', 
     flexDirection: 'row', 
     alignItems: 'center',
-    justifyContent: 'center', // Zorgt dat de inhoud in het midden staat
+    justifyContent: 'center',
     position: 'relative', 
     elevation: 3, 
     zIndex: 1,
   },
   backButton: { 
     position: 'absolute', 
-    left: 20, // Zet hem strak aan de linkerkant
-    bottom: 15, // Lijnt hem mooi verticaal uit met de titel
+    left: 20,
+    bottom: 15,
     zIndex: 2, 
   },
   backButtonText: { 
@@ -280,7 +269,6 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
   },
-  // --------------------------
 
   center: { 
     flex: 1, 
