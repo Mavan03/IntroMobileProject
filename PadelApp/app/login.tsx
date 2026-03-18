@@ -53,7 +53,7 @@ export default function Login() {
         <Text style={styles.backButtonText}>← Terug</Text>
       </TouchableOpacity>
 
-      <Text style={styles.header}>Welkom Terug!</Text>
+      <Text style={styles.header}>Welkom terug!</Text>
       <Text style={styles.subtitle}>Log in om je padel matches te beheren.</Text>
 
       {/* Error Melding */}
