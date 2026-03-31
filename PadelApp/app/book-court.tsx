@@ -1,22 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
-import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import { PADEL_CLUBS } from '../data/clubs'; // Zorg dat dit pad klopt
+import React, { useState, useEffect } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Platform,
+  Alert,
+} from "react-native";
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import { auth } from "../config/firebaseConfig";
+import { PADEL_CLUBS } from "../data/clubs"; // We gebruiken de centrale data import
 
-const getDistanceInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371; 
+const getDistanceInKm = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) => {
+  const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return (R * c).toFixed(1);
 };
 
-export default function ClubsList() {
+export default function BookCourt() {
   const router = useRouter();
+
+  // Locatie states
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sortedClubs, setSortedClubs] = useState<any[]>([]);
@@ -26,9 +47,9 @@ export default function ClubsList() {
     (async () => {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
-        
-        if (status !== 'granted') {
-          setErrorMsg('Locatie geweigerd. Clubs staan in willekeurige volgorde.');
+
+        if (status !== "granted") {
+          setErrorMsg("Locatie geweigerd. Clubs staan in willekeurige volgorde.");
           setSortedClubs([...PADEL_CLUBS].sort(() => Math.random() - 0.5));
           setIsLoading(false);
           return;
@@ -48,7 +69,7 @@ export default function ClubsList() {
 
         setSortedClubs(distanceSortedClubs);
       } catch (error) {
-        setErrorMsg('Fout bij zoeken locatie. Willekeurige volgorde.');
+        setErrorMsg("Fout bij zoeken locatie. Willekeurige volgorde.");
         setSortedClubs([...PADEL_CLUBS].sort(() => Math.random() - 0.5));
       } finally {
         setIsLoading(false);
@@ -58,13 +79,19 @@ export default function ClubsList() {
 
   const renderClubCard = ({ item }: { item: any }) => {
     const distance = location
-      ? getDistanceInKm(location.coords.latitude, location.coords.longitude, item.lat, item.lng)
-      : '?';
+      ? getDistanceInKm(
+          location.coords.latitude,
+          location.coords.longitude,
+          item.lat,
+          item.lng,
+        )
+      : "?";
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.card}
-        onPress={() => router.push(`/bookdetail/${item.id}` as any)} // Koppeling naar detailscherm
+        activeOpacity={0.8}
+        onPress={() => router.push(`/bookdetail/${item.id}`)}
       >
         <Image source={{ uri: item.image }} style={styles.cardImage} />
         <View style={styles.cardInfo}>
@@ -82,7 +109,7 @@ export default function ClubsList() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Terug</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Padelclubs</Text>
+        <Text style={styles.headerTitle}>Kies een club</Text>
       </View>
 
       {isLoading ? (
@@ -102,6 +129,7 @@ export default function ClubsList() {
             keyExtractor={(item) => item.id}
             renderItem={renderClubCard}
             contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
           />
         </>
       )}
@@ -110,20 +138,61 @@ export default function ClubsList() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { paddingTop: 50, paddingBottom: 15, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', elevation: 3 },
-  backButton: { position: 'absolute', left: 20, bottom: 15 },
-  backButtonText: { color: '#007AFF', fontSize: 16, fontWeight: 'bold' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
-  warningBox: { backgroundColor: '#ffe6e6', padding: 10, margin: 15, borderRadius: 8 },
-  warningText: { color: 'red', textAlign: 'center', fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 15,
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  backButton: { position: "absolute", left: 20, bottom: 15, zIndex: 2 },
+  backButtonText: { color: "#007AFF", fontSize: 16, fontWeight: "bold" },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
+  warningBox: {
+    backgroundColor: "#ffe6e6",
+    padding: 10,
+    marginHorizontal: 15,
+    marginTop: 15,
+    borderRadius: 8,
+  },
+  warningText: { color: "red", textAlign: "center", fontWeight: "bold" },
   listContainer: { padding: 15 },
-  card: { backgroundColor: '#fff', borderRadius: 15, marginBottom: 20, overflow: 'hidden', elevation: 4 },
-  cardImage: { width: '100%', height: 180, resizeMode: 'cover' },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    marginBottom: 20,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  cardImage: { width: "100%", height: 180, resizeMode: "cover" },
   cardInfo: { padding: 15 },
-  clubName: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  distanceText: { fontSize: 16, color: '#666', fontWeight: '600' },
-  tapText: { fontSize: 12, color: '#007AFF', marginTop: 8, fontWeight: '600' }
+  clubName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+  },
+  distanceText: { fontSize: 16, color: "#666", fontWeight: "600" },
+  tapText: { fontSize: 13, color: "#007AFF", marginTop: 8, fontWeight: "600" },
 });
