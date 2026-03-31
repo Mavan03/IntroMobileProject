@@ -11,9 +11,9 @@ import {
   Alert,
 } from "react-native";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { auth } from "../config/firebaseConfig";
-import { PADEL_CLUBS } from "../data/clubs"; // We gebruiken de centrale data import
+import { PADEL_CLUBS } from "../data/clubs";
 
 const getDistanceInKm = (
   lat1: number,
@@ -36,9 +36,11 @@ const getDistanceInKm = (
 
 export default function BookCourt() {
   const router = useRouter();
-
+  const { matchId } = useLocalSearchParams();
   // Locatie states
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null,
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sortedClubs, setSortedClubs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -49,7 +51,9 @@ export default function BookCourt() {
         let { status } = await Location.requestForegroundPermissionsAsync();
 
         if (status !== "granted") {
-          setErrorMsg("Locatie geweigerd. Clubs staan in willekeurige volgorde.");
+          setErrorMsg(
+            "Locatie geweigerd. Clubs staan in willekeurige volgorde.",
+          );
           setSortedClubs([...PADEL_CLUBS].sort(() => Math.random() - 0.5));
           setIsLoading(false);
           return;
@@ -62,8 +66,12 @@ export default function BookCourt() {
         const userLng = currentLocation.coords.longitude;
 
         const distanceSortedClubs = [...PADEL_CLUBS].sort((a, b) => {
-          const distA = parseFloat(getDistanceInKm(userLat, userLng, a.lat, a.lng));
-          const distB = parseFloat(getDistanceInKm(userLat, userLng, b.lat, b.lng));
+          const distA = parseFloat(
+            getDistanceInKm(userLat, userLng, a.lat, a.lng),
+          );
+          const distB = parseFloat(
+            getDistanceInKm(userLat, userLng, b.lat, b.lng),
+          );
           return distA - distB;
         });
 
@@ -91,13 +99,17 @@ export default function BookCourt() {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.8}
-        onPress={() => router.push(`/bookdetail/${item.id}`)}
+        onPress={() =>
+          router.push(`/bookdetail/${item.id}?matchId=${matchId}` as any)
+        }
       >
         <Image source={{ uri: item.image }} style={styles.cardImage} />
         <View style={styles.cardInfo}>
           <Text style={styles.clubName}>{item.name}</Text>
           <Text style={styles.distanceText}>📍 {distance} km van jou</Text>
-          <Text style={styles.tapText}>Tik om uren te zien en te boeken 👉</Text>
+          <Text style={styles.tapText}>
+            Tik om uren te zien en te boeken 👉
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -106,7 +118,10 @@ export default function BookCourt() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>← Terug</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Kies een club</Text>
