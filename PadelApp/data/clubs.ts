@@ -4,7 +4,7 @@ export const PADEL_CLUBS = [
     name: 'Ter Eiken Padel',
     lat: 51.1542,
     lng: 4.4531,
-    image: 'https://padelstart.nl/wp-content/uploads/2021/02/pacma-belgie-1.jpg',
+    image: 'https://static.wixstatic.com/media/f5002f_66a73f90dfb14e448c3a96484f31b98f~mv2.jpg/v1/fill/w_774,h_500,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/DJI_0106.jpg',
     description: 'Prachtige club in Edegem. Open van donderdag t/m zondag.',
     open: 8,
     close: 23,
