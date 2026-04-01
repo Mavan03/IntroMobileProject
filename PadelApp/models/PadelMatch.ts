@@ -7,4 +7,5 @@ export interface PadelMatch {
   isMixed: boolean;
   isCompetitive: boolean;
   players: string[];
+  status: 'open' | 'played' | 'cancelled';
 }

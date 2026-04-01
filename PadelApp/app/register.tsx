@@ -9,6 +9,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -26,47 +27,35 @@ export default function Register() {
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const handleRegister = async () => {
-    // Basic validatie
-    if (!firstName || !lastName || !email || !password) {
-      setErrorMessage("Vul alle velden in a niffo!");
-      return;
-    }
+  if (email === '' || password === '' || firstName === '') {
+    Alert.alert("Fout", "Vul alle verplichte velden in.");
+    return;
+  }
 
-    try {
-      // 1. Maak account aan in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      const user = userCredential.user;
+  try {
+    // 1. Maak de gebruiker aan in Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
 
-      // 2. Sla extra user data op in Firestore (users collectie)
-      // We gebruiken de UID van auth als het document ID. Super clean.
-      await setDoc(doc(db, "users", user.uid), {
-        id: user.uid, // Je wilde een ID erbij, dit is de unieke ID van deze user!
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        level: 1,
-      });
+    // 2. Maak het gebruikersprofiel aan in Firestore
+    await setDoc(doc(db, "users", user.uid), {
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      // CRUCIAAL VOOR DE OPDRACHT:
+      level: 1.5, 
+      profilePic: 'https://cdn-icons-png.flaticon.com/512/3940/3940403.png', // Standaard avatar
+      createdAt: new Date().getTime(),
+      matchesWon: 0,
+      matchesLost: 0
+    });
 
-      console.log("Account gefixt! ID:", user.uid);
-      alert("Account succesvol aangemaakt!");
-
-      // Stuur de broer terug naar het dashboard
-      router.replace("/");
-    } catch (error) {
-      // De TypeScript fix: checken of het echt een Error object is
-      if (error instanceof Error) {
-        setErrorMessage(error.message);
-        console.error("Ai, er ging iets mis:", error.message);
-      } else {
-        setErrorMessage("Onbekende fout opgetreden.");
-      }
-    }
-  };
-
+    Alert.alert("Succes", "Account aangemaakt!");
+    router.replace('/');
+  } catch (error: any) {
+    Alert.alert("Registratie mislukt", error.message);
+  }
+};
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}

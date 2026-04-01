@@ -1,117 +1,154 @@
-import { useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-} from "react-native";
-import { collection, getDocs } from "firebase/firestore";
-import { db, auth } from "../config/firebaseConfig";
-
-const parseDateToTime = (dateStr: string) => {
-  const parts = dateStr.match(/\d+/g);
-  if (!parts || parts.length < 3) return 0;
-  const day = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const year = parseInt(parts[2], 10);
-  const hours = parts[3] ? parseInt(parts[3], 10) : 0;
-  const minutes = parts[4] ? parseInt(parts[4], 10) : 0;
-  return new Date(year, month, day, hours, minutes).getTime();
-};
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../config/firebaseConfig';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function FindMatch() {
   const router = useRouter();
-  const [matches, setMatches] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [allMatches, setAllMatches] = useState<any[]>([]);
+  const [filteredMatches, setFilteredMatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const formatTimeWithoutSeconds = (dateStr: string) => {
-    const parts = dateStr.split(":");
-    return parts.length >= 2 ? `${parts[0]}:${parts[1]}` : dateStr;
-  };
-
-  const fetchMatches = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "matches"));
-      const matchesData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      //Filter volle matchen
-      const openMatches = matchesData.filter((m: any) => {
-        const playerCount = m.players ? m.players.length : 0;
-        return playerCount < 4; // alleen zien als er minder dan 4 spelers zijn
-      });
-
-      const sorted = openMatches.sort(
-        (a: any, b: any) => parseDateToTime(a.date) - parseDateToTime(b.date),
-      );
-      setMatches(sorted);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Filter States
+  const [minLevel, setMinLevel] = useState('');
+  const [onlyAvailable, setOnlyAvailable] = useState(false); // Toon enkel matchen die niet volzet zijn
+  const [typeFilter, setTypeFilter] = useState<'all' | 'comp' | 'rec'>('all');
 
   useEffect(() => {
     fetchMatches();
   }, []);
 
-  const renderMatchCard = ({ item }: { item: any }) => {
-    const playerCount = item.players ? item.players.length : 0;
-    const isFull = playerCount >= 4;
+  // Update de lijst telkens als een filter verandert
+  useEffect(() => {
+    applyFilters();
+  }, [minLevel, onlyAvailable, typeFilter, allMatches]);
 
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.clubName}>{item.club}</Text>
-          <View
-            style={[styles.badge, isFull ? styles.badgeFull : styles.badgeOpen]}
-          >
-            <Text style={styles.badgeText}>{isFull ? "VOL" : "OPEN"}</Text>
-          </View>
-        </View>
+  const fetchMatches = async () => {
+    setLoading(true);
+    try {
+      // We halen alle matches op zonder de 'where' clause om Firestore-index problemen te voorkomen
+      const querySnapshot = await getDocs(collection(db, 'matches'));
+      const matches = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      } as any));
 
-        <Text style={styles.matchInfo}>
-          📅 {formatTimeWithoutSeconds(item.date)}
-        </Text>
-        <Text style={styles.matchInfo}>
-          Niveau: {item.minLevel} - {item.maxLevel}
-        </Text>
-        <Text style={styles.playerCount}>Spelers: {playerCount} / 4</Text>
-
-        <TouchableOpacity
-          style={styles.detailsBtn}
-          onPress={() => router.push(`/match/${item.id}` as any)}
-        >
-          <Text style={styles.detailsBtnText}>
-            Bekijk Details & Inschrijven
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
+      // We filteren de gespeelde matches hier in de code
+      const activeMatches = matches.filter(m => m.status !== 'played');
+      
+      setAllMatches(activeMatches);
+      setFilteredMatches(activeMatches); // Zorg dat de lijst direct gevuld is
+    } catch (error) {
+      console.error("Fout bij ophalen matches:", error);
+      Alert.alert("Fout", "Kon matchen niet ophalen.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const applyFilters = () => {
+    let tempMatches = [...allMatches];
+
+    // 1. Filter op Niveau
+    if (minLevel !== '') {
+      const levelNum = parseFloat(minLevel);
+      tempMatches = tempMatches.filter(m => m.minLevel >= levelNum);
+    }
+
+    // 2. Filter op Beschikbaarheid (niet volzet)
+    if (onlyAvailable) {
+      tempMatches = tempMatches.filter(m => m.players?.length < 4);
+    }
+
+    // 3. Filter op Type
+    if (typeFilter === 'comp') {
+      tempMatches = tempMatches.filter(m => m.isCompetitive === true);
+    } else if (typeFilter === 'rec') {
+      tempMatches = tempMatches.filter(m => m.isCompetitive === false);
+    }
+
+    setFilteredMatches(tempMatches);
+  };
+
+  const renderMatchItem = ({ item }: { item: any }) => (
+    <TouchableOpacity 
+      style={styles.matchCard} 
+      onPress={() => router.push(`/match/${item.id}`)}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.clubName}>{item.club}</Text>
+        <Text style={styles.typeBadge}>{item.isCompetitive ? '🏆 Comp' : '🎾 Rec'}</Text>
+      </View>
+      <Text style={styles.dateText}>📅 {item.date}</Text>
+      <View style={styles.cardFooter}>
+        <Text style={styles.levelTag}>Niveau: {item.minLevel} - {item.maxLevel}</Text>
+        <Text style={[styles.playerCount, item.players?.length === 4 && styles.fullText]}>
+          👥 {item.players?.length}/4 spelers
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-        <Text style={styles.backText}>← Terug</Text>
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#333" /></TouchableOpacity>
+        <Text style={styles.title}>Zoek een match</Text>
+      </View>
 
-      <Text style={styles.header}>Zoek een Wedstrijd</Text>
+      {/* FILTER SECTIE */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Filters</Text>
+        <View style={styles.row}>
+          <TextInput
+            style={styles.levelInput}
+            placeholder="Min. Niveau (bv. 2.0)"
+            placeholderTextColor="#999"
+            keyboardType="numeric"
+            value={minLevel}
+            onChangeText={setMinLevel}
+          />
+          <TouchableOpacity 
+            style={[styles.toggleBtn, onlyAvailable && styles.toggleBtnActive]}
+            onPress={() => setOnlyAvailable(!onlyAvailable)}
+          >
+            <Text style={[styles.toggleText, onlyAvailable && styles.whiteText]}>Enkel vrije plekken</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.typeRow}>
+          <TouchableOpacity 
+            style={[styles.typeBtn, typeFilter === 'all' && styles.typeBtnActive]} 
+            onPress={() => setTypeFilter('all')}
+          >
+            <Text style={typeFilter === 'all' && styles.whiteText}>Alles</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.typeBtn, typeFilter === 'comp' && styles.typeBtnActive]} 
+            onPress={() => setTypeFilter('comp')}
+          >
+            <Text style={typeFilter === 'comp' && styles.whiteText}>🏆 Competitief</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.typeBtn, typeFilter === 'rec' && styles.typeBtnActive]} 
+            onPress={() => setTypeFilter('rec')}
+          >
+            <Text style={typeFilter === 'rec' && styles.whiteText}>🎾 Recreatief</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#4CAF50" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
-          data={matches}
+          data={filteredMatches}
           keyExtractor={(item) => item.id}
-          renderItem={renderMatchCard}
-          showsVerticalScrollIndicator={false}
+          renderItem={renderMatchItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<Text style={styles.empty}>Geen matchen gevonden met deze filters.</Text>}
         />
       )}
     </View>
@@ -119,41 +156,29 @@ export default function FindMatch() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f9fa", padding: 20 },
-  header: { fontSize: 28, fontWeight: "900", marginBottom: 20, marginTop: 10 },
-  back: { marginTop: 30, marginBottom: 10 },
-  backText: { color: "#007AFF", fontWeight: "bold" },
-  card: {
-    backgroundColor: "#fff",
-    padding: 18,
-    borderRadius: 16,
-    marginBottom: 15,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  clubName: { fontSize: 18, fontWeight: "bold" },
-  matchInfo: { fontSize: 14, color: "#666", marginBottom: 4 },
-  playerCount: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#4CAF50",
-    marginTop: 5,
-    marginBottom: 15,
-  },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  badgeOpen: { backgroundColor: "#E8F5E9" },
-  badgeFull: { backgroundColor: "#FFEBEE" },
-  badgeText: { fontSize: 10, fontWeight: "bold" },
-  detailsBtn: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  detailsBtnText: { color: "#fff", fontWeight: "bold" },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  header: { paddingTop: 60, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingBottom: 15 },
+  title: { fontSize: 22, fontWeight: 'bold', marginLeft: 15 },
+  filterSection: { backgroundColor: '#fff', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  filterLabel: { fontSize: 14, fontWeight: 'bold', color: '#666', marginBottom: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  levelInput: { flex: 1, backgroundColor: '#f0f0f0', padding: 10, borderRadius: 8, marginRight: 10, color: '#000' },
+  toggleBtn: { backgroundColor: '#f0f0f0', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd' },
+  toggleBtnActive: { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
+  toggleText: { fontSize: 12, fontWeight: 'bold' },
+  typeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  typeBtn: { flex: 1, backgroundColor: '#f0f0f0', padding: 8, borderRadius: 8, alignItems: 'center', marginHorizontal: 2 },
+  typeBtnActive: { backgroundColor: '#333' },
+  whiteText: { color: '#fff' },
+  list: { padding: 20 },
+  matchCard: { backgroundColor: '#fff', padding: 18, borderRadius: 15, marginBottom: 15, elevation: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  clubName: { fontSize: 17, fontWeight: 'bold' },
+  typeBadge: { fontSize: 12, fontWeight: 'bold', color: '#666' },
+  dateText: { color: '#007AFF', marginBottom: 10, fontWeight: '600' },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 10 },
+  levelTag: { fontSize: 13, color: '#444' },
+  playerCount: { fontSize: 13, fontWeight: 'bold', color: '#666' },
+  fullText: { color: '#D8000C' },
+  empty: { textAlign: 'center', marginTop: 40, color: '#999', fontStyle: 'italic' }
 });

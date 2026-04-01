@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import { PADEL_CLUBS } from '../data/clubs';
 
@@ -38,6 +38,33 @@ const Dashboard: React.FC = () => {
   const [closestClub, setClosestClub] = useState<any>(PADEL_CLUBS[0]);
   const [closestDistance, setClosestDistance] = useState<number | null>(null);
 
+  const fetchData = async (user: any) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) setFirstName(userDoc.data().firstName);
+
+      const matchSnap = await getDocs(collection(db, 'matches'));
+      const matches = matchSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      const userMatches = matches
+        .filter((m) => (m.creatorId === user.uid || m.players?.includes(user.uid)) && m.status !== 'played')
+        .sort((a, b) => parseDateToTime(a.date) - parseDateToTime(b.date));
+      setMyMatches(userMatches);
+
+      const bookingSnap = await getDocs(query(collection(db, 'bookings'), where('userId', '==', user.uid)));
+      const bookings = bookingSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      
+      const sortedBookings = bookings.sort((a, b) => {
+        const timeA = parseDateToTime(`${a.displayDate} ${a.displayTime}`);
+        const timeB = parseDateToTime(`${b.displayDate} ${b.displayTime}`);
+        return timeA - timeB;
+      });
+      
+      setMyBookings(sortedBookings);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
@@ -57,20 +84,8 @@ const Dashboard: React.FC = () => {
       if (user) {
         setIsLoggedIn(true);
         setIsLoading(true);
-        try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) setFirstName(userDoc.data().firstName);
-
-          const matchSnap = await getDocs(collection(db, 'matches'));
-          const matches = matchSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-          const userMatches = matches
-            .filter((m) => (m.creatorId === user.uid || m.players?.includes(user.uid)) && m.status !== 'played')
-            .sort((a, b) => parseDateToTime(a.date) - parseDateToTime(b.date));
-          setMyMatches(userMatches);
-
-          const bookingSnap = await getDocs(query(collection(db, 'bookings'), where('userId', '==', user.uid)));
-          setMyBookings(bookingSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[]);
-        } catch (error) { console.error(error); } finally { setIsLoading(false); }
+        await fetchData(user);
+        setIsLoading(false);
       } else {
         setIsLoggedIn(false);
         setMyMatches([]);
@@ -79,6 +94,29 @@ const Dashboard: React.FC = () => {
     });
     return () => unsubscribe(); 
   }, []);
+
+  const handleCancelBooking = (bookingId: string) => {
+    Alert.alert(
+      "Reservering annuleren",
+      "Weet je zeker dat je deze reservering wilt verwijderen?",
+      [
+        { text: "Nee", style: "cancel" },
+        { 
+          text: "Ja, annuleer", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, "bookings", bookingId));
+              setMyBookings(prev => prev.filter(b => b.id !== bookingId));
+              Alert.alert("Geannuleerd", "Je reservering is verwijderd.");
+            } catch (e) {
+              Alert.alert("Fout", "Kon de reservering niet annuleren.");
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const formatTimeNoSec = (dateStr: string) => {
     if (!dateStr) return "";
@@ -93,15 +131,22 @@ const Dashboard: React.FC = () => {
           <Text style={styles.greeting}>Klaar voor een potje?</Text>
           <Text style={styles.title}>{isLoggedIn ? `Hey, ${firstName}` : 'Padel manager'}</Text>
         </View>
-        {!isLoggedIn ? (
-          <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
-            <Text style={styles.loginBtnText}>Login</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => signOut(auth)}>
-            <Ionicons name="log-out-outline" size={28} color="#D8000C" />
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerActions}>
+          {!isLoggedIn ? (
+            <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
+              <Text style={styles.loginBtnText}>Login</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.iconBtn} onPress={() => router.push('/profile')}>
+                <Ionicons name="person-circle-outline" size={32} color="#333" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconBtn} onPress={() => signOut(auth)}>
+                <Ionicons name="log-out-outline" size={28} color="#D8000C" />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
 
       <TouchableOpacity style={styles.heroCard} onPress={() => router.push('/book-court')}>
@@ -158,10 +203,16 @@ const Dashboard: React.FC = () => {
           {myBookings.length > 0 ? (
             myBookings.map(booking => (
               <View key={booking.id} style={[styles.matchCard, { borderLeftColor: '#FF9800' }]}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.cardClub}>{booking.clubName}</Text>
                   <Text style={styles.cardDate}>🕒 {booking.displayDate} om {booking.displayTime}</Text>
                 </View>
+                <TouchableOpacity 
+                  onPress={() => handleCancelBooking(booking.id)}
+                  style={styles.cancelBtn}
+                >
+                  <Ionicons name="trash-outline" size={22} color="#D8000C" />
+                </TouchableOpacity>
               </View>
             ))
           ) : (
@@ -177,6 +228,8 @@ const Dashboard: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA', paddingHorizontal: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 60, marginBottom: 25 },
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  iconBtn: { marginLeft: 15 },
   greeting: { fontSize: 14, color: '#6c757d' },
   title: { fontSize: 26, fontWeight: '900' },
   loginBtn: { backgroundColor: '#007AFF', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20 },
@@ -198,7 +251,8 @@ const styles = StyleSheet.create({
   playerCount: { fontSize: 12, color: '#666' },
   fullText: { color: '#4CAF50', fontWeight: 'bold' },
   readyTag: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold' },
-  emptyText: { color: '#999', fontStyle: 'italic', marginLeft: 5 }
+  emptyText: { color: '#999', fontStyle: 'italic', marginLeft: 5 },
+  cancelBtn: { padding: 5, marginLeft: 10 }
 });
 
-export default Dashboard;
+export default Dashboard; 
