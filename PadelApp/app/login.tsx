@@ -9,53 +9,34 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../config/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Login() {
   const router = useRouter();
-
-  // State voor de input velden
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleLogin = async () => {
-    // Basic validatie
     if (!email || !password) {
-      setErrorMessage("Vul je email en wachtwoord in!");
+      setErrorMessage("Vul je e-mailadres en wachtwoord in.");
       return;
     }
-
     setIsLoading(true);
     setErrorMessage("");
 
     try {
-      // Firebase Magie: Controleer of het account bestaat en het wachtwoord klopt
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-
-      console.log("Ingelogd als baas! ID:", userCredential.user.uid);
-
-      // Stuur de broer terug naar het dashboard
+      await signInWithEmailAndPassword(auth, email, password);
       router.replace("/");
     } catch (error) {
-      // Firebase geeft specifieke errors terug als het misgaat
-      if (error instanceof Error) {
-        console.error("Login fout:", error.message);
-        // We maken de error iets gebruiksvriendelijker dan de standaard Firebase Engelse tekst
-        setErrorMessage(
-          "Verkeerd emailadres of wachtwoord. Probeer het opnieuw!",
-        );
-      } else {
-        setErrorMessage("Onbekende fout opgetreden bij het inloggen.");
-      }
+      setErrorMessage("Verkeerd e-mailadres of wachtwoord.");
     } finally {
       setIsLoading(false);
     }
@@ -63,170 +44,188 @@ export default function Login() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: "#020617" }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Terug Knop */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.backButtonText}>← Terug</Text>
-        </TouchableOpacity>
+          <View style={styles.darkHeader}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={28} color="#F8FAFC" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Welkom terug</Text>
+            <Text style={styles.headerSubtitle}>
+              Log in om je matchen te beheren
+            </Text>
+          </View>
 
-        <Text style={styles.header}>Welkom terug!</Text>
-        <Text style={styles.subtitle}>
-          Log in om je padel matches te beheren.
-        </Text>
+          <View style={styles.card}>
+            {errorMessage !== "" && (
+              <View style={styles.errorBox}>
+                <Ionicons name="warning" size={20} color="#FFF" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
 
-        {/* Error Melding */}
-        {errorMessage !== "" && (
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        )}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>E-mailadres</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color="#64748B"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholder="naam@email.com"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+            </View>
 
-        {/* Email Veld */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email:</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholder="naam@email.com"
-          />
-        </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Wachtwoord</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#64748B"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholder="Je wachtwoord"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+            </View>
 
-        {/* Wachtwoord Veld */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Wachtwoord:</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="Jouw geheime wachtwoord"
-          />
-        </View>
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#0F172A" />
+              ) : (
+                <Text style={styles.buttonText}>Inloggen</Text>
+              )}
+            </TouchableOpacity>
 
-        {/* Login Knop */}
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Inloggen</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Link naar Registreren (voor als ze toch geen account hebben) */}
-        <View style={styles.registerContainer}>
-          <Text style={styles.registerText}>Nog geen account? </Text>
-          <TouchableOpacity onPress={() => router.push("/register" as any)}>
-            <Text style={styles.registerLink}>Maak er één aan!</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <View style={styles.registerContainer}>
+              <Text style={styles.registerText}>Nog geen account? </Text>
+              <TouchableOpacity onPress={() => router.push("/register" as any)}>
+                <Text style={styles.registerLink}>Maak er één aan!</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: "#fff",
-    flexGrow: 1,
-    justifyContent: "center", // Zet alles mooi in het midden van het scherm
-  },
-  backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    paddingVertical: 10,
-    zIndex: 10,
-  },
-  backButtonText: {
-    color: "#007AFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  header: {
-    fontSize: 32,
-    fontWeight: "900",
-    marginBottom: 5,
-    color: "#1a1a1a",
-    marginTop: 40,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 30,
-  },
-  errorText: {
-    color: "#D8000C",
-    backgroundColor: "#FFD2D2",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
-    fontWeight: "600",
-    overflow: "hidden",
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    marginBottom: 8,
-    color: "#555",
-    fontWeight: "700",
-  },
-  input: {
-    borderWidth: 1.5,
-    borderColor: "#E0E0E0",
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
-    color: "#333",
-  },
-  button: {
-    backgroundColor: "#007AFF", // Mooi blauw om in de style te blijven
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-    shadowColor: "#007AFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+  scrollContent: { flexGrow: 1, backgroundColor: "#020617", paddingBottom: 40 },
+  darkHeader: {
+    backgroundColor: "#0F172A",
+    paddingTop: 60,
+    paddingBottom: 80,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
     elevation: 5,
   },
-  buttonDisabled: {
-    backgroundColor: "#A0CFFF", // Lichter blauw als hij aan het laden is
-    shadowOpacity: 0,
-    elevation: 0,
+  backButton: { marginBottom: 20, alignSelf: "flex-start" },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#F8FAFC",
+    letterSpacing: -0.5,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
+  headerSubtitle: {
+    fontSize: 15,
+    color: "#94A3B8",
+    marginTop: 8,
+    fontWeight: "500",
   },
+  card: {
+    backgroundColor: "#1E293B",
+    marginHorizontal: 20,
+    marginTop: -50,
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#334155",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EF4444",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  errorText: { color: "#FFF", fontWeight: "700", marginLeft: 8, flex: 1 },
+  inputGroup: { marginBottom: 20 },
+  label: { fontSize: 13, marginBottom: 8, color: "#94A3B8", fontWeight: "800" },
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+  },
+  inputIcon: { marginRight: 10 },
+  input: {
+    flex: 1,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: "#F8FAFC",
+    fontWeight: "600",
+  },
+  button: {
+    backgroundColor: "#00E676",
+    padding: 18,
+    borderRadius: 16,
+    alignItems: "center",
+    marginTop: 10,
+    elevation: 4,
+    shadowColor: "#00E676",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  buttonDisabled: { opacity: 0.7, elevation: 0, shadowOpacity: 0 },
+  buttonText: { color: "#0F172A", fontSize: 18, fontWeight: "900" },
   registerContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 30,
+    marginTop: 24,
   },
-  registerText: {
-    color: "#666",
-    fontSize: 15,
-  },
-  registerLink: {
-    color: "#007AFF",
-    fontSize: 15,
-    fontWeight: "bold",
-  },
+  registerText: { color: "#94A3B8", fontSize: 15, fontWeight: "500" },
+  registerLink: { color: "#00E676", fontSize: 15, fontWeight: "800" },
 });

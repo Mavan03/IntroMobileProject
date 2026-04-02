@@ -4,15 +4,13 @@ import {
   Text,
   View,
   FlatList,
-  Image,
+  ImageBackground,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
-  Alert,
 } from "react-native";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { auth } from "../config/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
 import { PADEL_CLUBS } from "../data/clubs";
 
 const getDistanceInKm = (
@@ -37,7 +35,6 @@ const getDistanceInKm = (
 export default function BookCourt() {
   const router = useRouter();
   const { matchId } = useLocalSearchParams();
-  // Locatie states
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
@@ -49,7 +46,6 @@ export default function BookCourt() {
     (async () => {
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
-
         if (status !== "granted") {
           setErrorMsg(
             "Locatie geweigerd. Clubs staan in willekeurige volgorde.",
@@ -98,18 +94,29 @@ export default function BookCourt() {
     return (
       <TouchableOpacity
         style={styles.card}
-        activeOpacity={0.8}
+        activeOpacity={0.9}
         onPress={() =>
           router.push(`/bookdetail/${item.id}?matchId=${matchId}` as any)
         }
       >
-        <Image source={{ uri: item.image }} style={styles.cardImage} />
+        <ImageBackground
+          source={
+            typeof item.image === "string" ? { uri: item.image } : item.image
+          }
+          style={styles.cardImage}
+          imageStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}
+        >
+          <View style={styles.distanceBadge}>
+            <Ionicons name="location" size={14} color="#FFF" />
+            <Text style={styles.distanceText}>{distance} km</Text>
+          </View>
+        </ImageBackground>
         <View style={styles.cardInfo}>
           <Text style={styles.clubName}>{item.name}</Text>
-          <Text style={styles.distanceText}>📍 {distance} km van jou</Text>
-          <Text style={styles.tapText}>
-            Tik om uren te zien en te boeken 👉
-          </Text>
+          <View style={styles.actionRow}>
+            <Text style={styles.tapText}>Bekijk uren en reserveer</Text>
+            <Ionicons name="arrow-forward-circle" size={28} color="#00E676" />
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -122,20 +129,21 @@ export default function BookCourt() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Text style={styles.backButtonText}>← Terug</Text>
+          <Ionicons name="arrow-back" size={28} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Kies een club</Text>
       </View>
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#4CAF50" />
-          <Text style={styles.loadingText}>Locatie zoeken & sorteren...</Text>
+          <ActivityIndicator size="large" color="#00E676" />
+          <Text style={styles.loadingText}>Clubs in de buurt zoeken...</Text>
         </View>
       ) : (
         <>
           {errorMsg && (
             <View style={styles.warningBox}>
+              <Ionicons name="warning" size={20} color="#B45309" />
               <Text style={styles.warningText}>{errorMsg}</Text>
             </View>
           )}
@@ -145,6 +153,8 @@ export default function BookCourt() {
             renderItem={renderClubCard}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
+            bounces={false}
+            overScrollMode="never"
           />
         </>
       )}
@@ -153,61 +163,86 @@ export default function BookCourt() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#F3F4F6" },
   header: {
-    paddingTop: 50,
+    paddingTop: 60,
     paddingBottom: 15,
-    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    backgroundColor: "#FFF",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
-  backButton: { position: "absolute", left: 20, bottom: 15, zIndex: 2 },
-  backButtonText: { color: "#007AFF", fontSize: 16, fontWeight: "bold" },
+  backButton: { marginRight: 15 },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#111827",
+    letterSpacing: -0.5,
   },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: "#6B7280",
+    fontWeight: "600",
   },
-  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
   warningBox: {
-    backgroundColor: "#ffe6e6",
-    padding: 10,
-    marginHorizontal: 15,
+    backgroundColor: "#FEF3C7",
+    padding: 12,
+    marginHorizontal: 20,
     marginTop: 15,
-    borderRadius: 8,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
   },
-  warningText: { color: "red", textAlign: "center", fontWeight: "bold" },
-  listContainer: { padding: 15 },
+  warningText: { color: "#B45309", fontWeight: "700", marginLeft: 8 },
+  listContainer: { padding: 20, paddingBottom: 40 },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 15,
+    backgroundColor: "#FFF",
+    borderRadius: 16,
     marginBottom: 20,
-    overflow: "hidden",
     elevation: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  cardImage: { width: "100%", height: 180, resizeMode: "cover" },
-  cardInfo: { padding: 15 },
+  cardImage: {
+    width: "100%",
+    height: 160,
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    padding: 12,
+  },
+  distanceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(17, 24, 39, 0.7)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  distanceText: {
+    fontSize: 13,
+    color: "#FFF",
+    fontWeight: "800",
+    marginLeft: 4,
+  },
+  cardInfo: { padding: 16 },
   clubName: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 5,
+    fontWeight: "900",
+    color: "#111827",
+    marginBottom: 8,
   },
-  distanceText: { fontSize: 16, color: "#666", fontWeight: "600" },
-  tapText: { fontSize: 13, color: "#007AFF", marginTop: 8, fontWeight: "600" },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  tapText: { fontSize: 15, color: "#6B7280", fontWeight: "600" },
 });

@@ -9,6 +9,11 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -17,20 +22,24 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  query,
+  collection,
+  where,
+  getDocs,
+  deleteDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../config/firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
-import { PADEL_CLUBS } from "../../data/clubs";
 
 const parseDateToTime = (dateStr: string) => {
   if (!dateStr) return 0;
   const parts = dateStr.match(/\d+/g);
   if (!parts || parts.length < 3) return 0;
-  const day = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const year = parseInt(parts[2], 10);
-  const hours = parts[3] ? parseInt(parts[3], 10) : 0;
-  const minutes = parts[4] ? parseInt(parts[4], 10) : 0;
+  const day = parseInt(parts[0], 10),
+    month = parseInt(parts[1], 10) - 1,
+    year = parseInt(parts[2], 10);
+  const hours = parts[3] ? parseInt(parts[3], 10) : 0,
+    minutes = parts[4] ? parseInt(parts[4], 10) : 0;
   return new Date(year, month, day, hours, minutes).getTime();
 };
 
@@ -40,17 +49,39 @@ export default function MatchDetail() {
 
   const [match, setMatch] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  // State om bij te houden welke speler geselecteerd is om te wisselen
   const [selectedSwapIndex, setSelectedSwapIndex] = useState<number | null>(
     null,
   );
+  const [playerNames, setPlayerNames] = useState<{ [key: string]: string }>({});
+
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     const fetchMatch = async () => {
       const docSnap = await getDoc(doc(db, "matches", id as string));
       if (docSnap.exists()) {
-        setMatch({ id: docSnap.id, ...docSnap.data() });
+        const matchData = { id: docSnap.id, ...docSnap.data() } as any;
+        setMatch(matchData);
+
+        if (matchData.players) {
+          const names: { [key: string]: string } = {};
+          const playersArray = matchData.players as string[];
+          for (const uid of playersArray) {
+            try {
+              const userDoc = await getDoc(doc(db, "users", uid));
+              names[uid] = userDoc.exists()
+                ? userDoc.data().firstName
+                : "Onbekend";
+            } catch (e) {
+              names[uid] = "Speler";
+            }
+          }
+          setPlayerNames(names);
+        }
       }
       setLoading(false);
     };
@@ -62,99 +93,113 @@ export default function MatchDetail() {
     currentUser && match?.players?.includes(currentUser.uid);
   const isCreator = currentUser && match?.creatorId === currentUser.uid;
   const isFull = match?.players?.length === 4;
+  const hasEnoughPlayersToConfirm = match?.players?.length >= 2;
   const isPast = match ? parseDateToTime(match.date) < Date.now() : false;
+
+  const getPlayerDisplay = (index: number) => {
+    if (!match?.players || !match.players[index]) return "Wachten op speler...";
+    const uid = match.players[index];
+    const displayName = playerNames[uid] ? playerNames[uid] : "Laden...";
+
+    if (uid === match?.creatorId) {
+      return uid === currentUser?.uid
+        ? "Jij (Beheerder)"
+        : `${displayName} (Beheerder)`;
+    }
+    if (uid === currentUser?.uid) return "Jij";
+    return displayName;
+  };
 
   const handleJoin = async () => {
     if (!currentUser) return Alert.alert("Fout", "Je moet ingelogd zijn.");
     if (isParticipant) return Alert.alert("Info", "Je zit al in deze match.");
     if (isFull) return Alert.alert("Vol", "Deze match is al volzet.");
-
     try {
       await updateDoc(doc(db, "matches", match.id), {
         players: arrayUnion(currentUser.uid),
       });
       setMatch({ ...match, players: [...match.players, currentUser.uid] });
-      Alert.alert("Succes", "Je bent toegevoegd aan de match!");
     } catch (e) {
       Alert.alert("Fout", "Kon niet deelnemen.");
     }
   };
 
   const handleLeave = async () => {
-    if (Platform.OS === "web") {
-      const confirmLeave = window.confirm(
-        "Weet je zeker dat je je wilt uitschrijven?",
-      );
-      if (!confirmLeave) return;
-      try {
-        await updateDoc(doc(db, "matches", match.id), {
-          players: arrayRemove(currentUser?.uid),
-        });
-        alert("Je bent uit de match gehaald.");
-        router.replace("/");
-      } catch (e) {
-        alert("Fout bij verlaten.");
-      }
-    } else {
-      Alert.alert(
-        "Match Verlaten",
-        "Weet je zeker dat je je wilt uitschrijven?",
-        [
-          { text: "Annuleren", style: "cancel" },
-          {
-            text: "Verlaten",
-            style: "destructive",
-            onPress: async () => {
-              await updateDoc(doc(db, "matches", match.id), {
-                players: arrayRemove(currentUser?.uid),
-              });
-              router.replace("/");
-            },
+    Alert.alert(
+      "Match Verlaten",
+      "Weet je zeker dat je je wilt uitschrijven?",
+      [
+        { text: "Annuleren", style: "cancel" },
+        {
+          text: "Verlaten",
+          style: "destructive",
+          onPress: async () => {
+            await updateDoc(doc(db, "matches", match.id), {
+              players: arrayRemove(currentUser?.uid),
+            });
+            router.replace("/");
           },
-        ],
-      );
-    }
+        },
+      ],
+    );
+  };
+
+  const handleDeleteMatch = async () => {
+    Alert.alert(
+      "Match Annuleren",
+      "Weet je zeker dat je deze match wilt annuleren?",
+      [
+        { text: "Nee", style: "cancel" },
+        {
+          text: "Ja, verwijder",
+          style: "destructive",
+          onPress: async () => {
+            await deleteDoc(doc(db, "matches", match.id));
+            const q = query(
+              collection(db, "bookings"),
+              where("matchId", "==", match.id),
+            );
+            const snap = await getDocs(q);
+            snap.forEach(
+              async (bDoc) => await deleteDoc(doc(db, "bookings", bDoc.id)),
+            );
+            router.replace("/");
+          },
+        },
+      ],
+    );
   };
 
   const handleShuffleTeams = async () => {
     if (!isFull)
-      return Alert.alert(
-        "Wacht even",
-        "Je kunt pas teams maken als er 4 spelers zijn.",
-      );
+      return Alert.alert("Wacht even", "Je kunt pas mixen bij 4 spelers.");
     const shuffled = [...match.players].sort(() => 0.5 - Math.random());
     try {
       await updateDoc(doc(db, "matches", match.id), { players: shuffled });
       setMatch({ ...match, players: shuffled });
-      setSelectedSwapIndex(null); // Reset selectie bij shuffle
+      setSelectedSwapIndex(null);
     } catch (e) {
       Alert.alert("Fout", "Kon teams niet opslaan.");
     }
   };
 
-  // Handmatige wissel
   const handleSwapClick = async (index: number) => {
-    if (!isCreator || !isFull) return; // Alleen beheerder mag dit
-
+    if (!isCreator || !isFull) return;
     if (selectedSwapIndex === null) {
-      // Selecteer de eerste speler
       setSelectedSwapIndex(index);
     } else if (selectedSwapIndex === index) {
-      // Klik je nog een keer op dezelfde -> Deselecteer.
       setSelectedSwapIndex(null);
     } else {
-      // Wissel de twee spelers in de array
       const newPlayers = [...match.players];
       const temp = newPlayers[selectedSwapIndex];
       newPlayers[selectedSwapIndex] = newPlayers[index];
       newPlayers[index] = temp;
-
       try {
         await updateDoc(doc(db, "matches", match.id), { players: newPlayers });
         setMatch({ ...match, players: newPlayers });
-        setSelectedSwapIndex(null); // Reset selectie na succesvolle wissel
+        setSelectedSwapIndex(null);
       } catch (e) {
-        Alert.alert("Fout", "Kon de handmatige teamindeling niet opslaan.");
+        Alert.alert("Fout", "Kon teamindeling niet opslaan.");
       }
     }
   };
@@ -166,22 +211,37 @@ export default function MatchDetail() {
     );
   };
 
-  const handleBookDirectly = () => {
-    const clubObj = PADEL_CLUBS.find((c: any) => c.name === match.club);
-    if (clubObj)
-      router.push(`/bookdetail/${clubObj.id}?matchId=${match.id}` as any);
-    else router.push("/book-court" as any);
+  const handlePayment = async () => {
+    if (!cardNumber || !expiry || !cvv) {
+      Alert.alert("Fout", "Vul alle betaalgegevens in.");
+      return;
+    }
+    setIsPaying(true);
+    try {
+      await updateDoc(doc(db, "matches", match.id), { isBooked: true });
+      const q = query(
+        collection(db, "bookings"),
+        where("matchId", "==", match.id),
+      );
+      const snap = await getDocs(q);
+      snap.forEach(async (bookingDoc) => {
+        await updateDoc(doc(db, "bookings", bookingDoc.id), {
+          status: "confirmed",
+        });
+      });
+      setMatch({ ...match, isBooked: true });
+      setShowPaymentModal(false);
+      Alert.alert(
+        "Succes",
+        "De betaling is verwerkt. Het veld is definitief bevestigd.",
+      );
+    } catch (error) {
+      Alert.alert("Fout", "Er ging iets mis met de betaling.");
+    } finally {
+      setIsPaying(false);
+    }
   };
 
-  // Hulpfunctie voor weergave van spelers
-  const getPlayerDisplay = (index: number) => {
-    if (!match?.players || !match.players[index]) return "Wachten...";
-    const uid = match.players[index];
-    if (uid === currentUser?.uid) return "Jij (Beheerder)";
-    return `Speler (${uid.substring(0, 4)})`;
-  };
-
-  // Design voor één speler-blokje (Klikbaar voor de admin)
   const renderPlayer = (index: number) => {
     const isSelected = selectedSwapIndex === index;
     return (
@@ -191,13 +251,18 @@ export default function MatchDetail() {
         onPress={() => handleSwapClick(index)}
         style={[styles.playerItemBox, isSelected && styles.selectedPlayerBox]}
       >
+        <Ionicons
+          name="person"
+          size={16}
+          color={isSelected ? "#00E676" : "#64748B"}
+        />
         <Text
           style={[
             styles.playerItemText,
             isSelected && styles.selectedPlayerText,
           ]}
         >
-          👤 {getPlayerDisplay(index)}
+          {getPlayerDisplay(index)}
         </Text>
       </TouchableOpacity>
     );
@@ -206,312 +271,565 @@ export default function MatchDetail() {
   if (loading)
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color="#00E676" />
       </View>
     );
   if (!match)
     return (
       <View style={styles.center}>
-        <Text>Match niet gevonden.</Text>
+        <Text style={{ color: "#94A3B8", fontWeight: "bold" }}>
+          Match niet gevonden.
+        </Text>
       </View>
     );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-        <Text style={styles.backBtnText}>← Terug</Text>
-      </TouchableOpacity>
-
-      <View style={styles.card}>
-        <Text style={styles.clubName}>{match.club}</Text>
-        <Text style={styles.dateText}>📅 {match.date}</Text>
-        <Text style={styles.levelText}>
-          Niveau: {match.minLevel} - {match.maxLevel}
-        </Text>
-        <Text style={styles.typeText}>
-          {match.isCompetitive ? "Competitief" : "Recreatief"}
-        </Text>
-
-        <TouchableOpacity style={styles.routeBtn} onPress={openRoute}>
-          <Text style={styles.routeBtnText}>📍 Bekijk Route</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={28} color="#F8FAFC" />
         </TouchableOpacity>
-
-        <View style={styles.separator} />
-
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.sectionTitle}>
-              Spelers ({match.players?.length || 0}/4)
-            </Text>
-            {/* Kleine tekst voor de admin */}
-            {isCreator && isFull && (
-              <Text style={styles.hintText}>
-                Tik op 2 spelers om ze te wisselen
-              </Text>
-            )}
-          </View>
-
-          {isCreator && isFull && (
-            <TouchableOpacity
-              onPress={handleShuffleTeams}
-              style={styles.shuffleBtn}
-            >
-              <Text style={styles.shuffleBtnText}>🔀 Mix Teams</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {isFull ? (
-          <View style={styles.teamsContainer}>
-            <View style={styles.teamBox}>
-              <Text style={styles.teamTitle}>Team 1</Text>
-              {renderPlayer(0)}
-              {renderPlayer(1)}
-            </View>
-            <View style={styles.vsBox}>
-              <Text style={styles.vsText}>VS</Text>
-            </View>
-            <View style={styles.teamBox}>
-              <Text style={styles.teamTitle}>Team 2</Text>
-              {renderPlayer(2)}
-              {renderPlayer(3)}
-            </View>
-          </View>
-        ) : (
-          <View style={styles.waitingBox}>
-            <Text style={styles.waitingText}>Wachten op meer spelers...</Text>
-            {/* Toon alvast de spelers die er wél zijn */}
-            {match.players?.map((p: string, idx: number) => (
-              <Text key={p} style={{ marginTop: 5, color: "#666" }}>
-                👤 {getPlayerDisplay(idx)}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.separator} />
-
-        <View style={styles.actionContainer}>
-          {!isParticipant && !isFull && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleJoin}>
-              <Text style={styles.primaryBtnText}>Deelnemen aan match</Text>
-            </TouchableOpacity>
-          )}
-
-          {isParticipant && (
-            <View style={styles.rowBtns}>
-              <TouchableOpacity
-                style={[styles.halfBtn, styles.chatBtn]}
-                onPress={() => router.push(`/chat/${match.id}` as any)}
-              >
-                <Text style={styles.btnTextWhite}>Chat</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.halfBtn, styles.leaveBtn]}
-                onPress={handleLeave}
-              >
-                <Text style={styles.btnTextWhite}>Verlaten</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {isFull && !match.isBooked && (
-            <View style={styles.alertBox}>
-              <Text style={styles.alertText}>
-                De match is vol! Tijd om een veld te reserveren bij {match.club}
-                .
-              </Text>
-              <TouchableOpacity
-                style={styles.bookBtn}
-                onPress={handleBookDirectly}
-              >
-                <Text style={styles.bookBtnText}>Veld Boeken</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {isCreator &&
-            isFull &&
-            match.isBooked &&
-            isPast &&
-            match.status !== "played" && (
-              <TouchableOpacity
-                style={styles.adminBtn}
-                onPress={() => router.push(`/match-result/${match.id}` as any)}
-              >
-                <Text style={styles.adminBtnText}>Resultaat invoeren</Text>
-              </TouchableOpacity>
-            )}
-
-          {match.status === "played" && (
-            <View style={styles.playedBox}>
-              <Text style={styles.playedText}>Uitslag: {match.score}</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.headerTitle}>Matchdetails</Text>
       </View>
-    </ScrollView>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        bounces={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.clubName}>{match.club}</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {match.isCompetitive ? "COMPETITIEF" : "RECREATIEF"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={18} color="#94A3B8" />
+            <Text style={styles.infoText}>{match.date}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="stats-chart-outline" size={18} color="#94A3B8" />
+            <Text style={styles.infoText}>
+              Niveau {match.minLevel} - {match.maxLevel}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.routeBtn} onPress={openRoute}>
+            <Ionicons name="location" size={16} color="#00E676" />
+            <Text style={styles.routeBtnText}>Bekijk Route</Text>
+          </TouchableOpacity>
+
+          <View style={styles.separator} />
+
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.sectionTitle}>
+                Spelers ({match.players?.length || 0}/4)
+              </Text>
+              {isCreator && isFull && (
+                <Text style={styles.hintText}>
+                  Tik op 2 spelers om te wisselen
+                </Text>
+              )}
+            </View>
+            {isCreator && isFull && (
+              <TouchableOpacity
+                onPress={handleShuffleTeams}
+                style={styles.shuffleBtn}
+              >
+                <Ionicons name="shuffle" size={16} color="#00E676" />
+                <Text style={styles.shuffleBtnText}>Mix</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {isFull ? (
+            <View style={styles.teamsContainer}>
+              <View style={styles.teamBox}>
+                <Text style={styles.teamTitle}>Team 1</Text>
+                {renderPlayer(0)}
+                {renderPlayer(1)}
+              </View>
+              <View style={styles.vsBox}>
+                <Text style={styles.vsText}>VS</Text>
+              </View>
+              <View style={styles.teamBox}>
+                <Text style={styles.teamTitle}>Team 2</Text>
+                {renderPlayer(2)}
+                {renderPlayer(3)}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.waitingBox}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 10,
+                }}
+              >
+                <ActivityIndicator
+                  size="small"
+                  color="#F59E0B"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.waitingText}>Wachten op spelers...</Text>
+              </View>
+              {match.players?.map((p: string, idx: number) => (
+                <View key={p} style={styles.waitingPlayerRow}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                  <Text style={styles.waitingPlayerText}>
+                    {getPlayerDisplay(idx)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.separator} />
+
+          <View style={styles.actionContainer}>
+            {!isParticipant && !isFull && (
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleJoin}>
+                <Text style={styles.primaryBtnText}>Deelnemen aan match</Text>
+              </TouchableOpacity>
+            )}
+
+            {isParticipant && (
+              <View style={styles.rowBtns}>
+                <TouchableOpacity
+                  style={[
+                    styles.halfBtn,
+                    styles.chatBtn,
+                    match.isBooked && { flex: 1 },
+                  ]}
+                  onPress={() => router.push(`/chat/${match.id}` as any)}
+                >
+                  <Ionicons
+                    name="chatbubble-ellipses"
+                    size={20}
+                    color="#0F172A"
+                  />
+                  <Text style={[styles.btnTextWhite, { color: "#0F172A" }]}>
+                    Chat
+                  </Text>
+                </TouchableOpacity>
+
+                {!match.isBooked && (
+                  <TouchableOpacity
+                    style={[styles.halfBtn, { backgroundColor: "#EF4444" }]}
+                    onPress={isCreator ? handleDeleteMatch : handleLeave}
+                  >
+                    <Ionicons
+                      name={isCreator ? "trash" : "exit"}
+                      size={20}
+                      color="#FFF"
+                    />
+                    <Text style={styles.btnTextWhite}>
+                      {isCreator ? "Annuleren" : "Verlaten"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {!match.isBooked && (
+              <View style={styles.alertBox}>
+                <Ionicons name="warning" size={24} color="#F59E0B" />
+                {!hasEnoughPlayersToConfirm ? (
+                  <Text style={styles.alertText}>
+                    Voorlopig gereserveerd. Er zijn minimaal 2 spelers nodig om
+                    definitief te bevestigen.
+                  </Text>
+                ) : isCreator ? (
+                  <View style={{ width: "100%", alignItems: "center" }}>
+                    <Text style={styles.alertText}>
+                      Klaar om te spelen! Betaal om het veld definitief te
+                      claimen.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.bookBtn}
+                      onPress={() => setShowPaymentModal(true)}
+                    >
+                      <Text style={styles.bookBtnText}>Bevestig & Betaal</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={styles.alertText}>
+                    Wachten op de beheerder om de reservering definitief te
+                    maken.
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {isCreator &&
+              isFull &&
+              match.isBooked &&
+              isPast &&
+              match.status !== "played" && (
+                <TouchableOpacity
+                  style={styles.adminBtn}
+                  onPress={() =>
+                    router.push(`/match-result/${match.id}` as any)
+                  }
+                >
+                  <Ionicons name="trophy" size={20} color="#111827" />
+                  <Text style={styles.adminBtnText}>Resultaat invoeren</Text>
+                </TouchableOpacity>
+              )}
+
+            {match.status === "played" && (
+              <View style={styles.playedBox}>
+                <Text style={styles.playedText}>Uitslag: {match.score}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <Modal
+          visible={showPaymentModal}
+          animationType="slide"
+          transparent={true}
+        >
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Bevestig Reservering</Text>
+                <Text style={styles.modalSubTitle}>
+                  Rond de betaling af om het veld te claimen.
+                </Text>
+
+                <View style={styles.paymentContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Kaartnummer"
+                    placeholderTextColor="#64748B"
+                    value={cardNumber}
+                    onChangeText={setCardNumber}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                  />
+                  <View style={styles.row}>
+                    <TextInput
+                      style={[styles.input, { flex: 1, marginRight: 10 }]}
+                      placeholder="MM/JJ"
+                      placeholderTextColor="#64748B"
+                      value={expiry}
+                      onChangeText={setExpiry}
+                      keyboardType="number-pad"
+                      returnKeyType="done"
+                    />
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      placeholder="CVV"
+                      placeholderTextColor="#64748B"
+                      secureTextEntry
+                      value={cvv}
+                      onChangeText={setCvv}
+                      keyboardType="number-pad"
+                      returnKeyType="done"
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.primaryBtn, isPaying && { opacity: 0.7 }]}
+                  onPress={handlePayment}
+                  disabled={isPaying}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {isPaying ? "Verwerken..." : "Betaal Nu"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setShowPaymentModal(false)}
+                >
+                  <Text style={styles.cancelModalText}>Annuleren</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA", padding: 20 },
-  backBtn: { marginTop: 40, marginBottom: 15 },
-  backBtnText: { color: "#007AFF", fontSize: 16, fontWeight: "bold" },
-  card: {
-    backgroundColor: "#fff",
-    padding: 25,
-    borderRadius: 20,
-    elevation: 3,
-    marginBottom: 40,
+  container: { flex: 1, backgroundColor: "#020617" },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E293B",
   },
-  clubName: {
+  backBtn: { marginRight: 15 },
+  headerTitle: {
     fontSize: 24,
     fontWeight: "900",
-    marginBottom: 10,
-    color: "#1A1A1A",
+    color: "#F8FAFC",
+    letterSpacing: -0.5,
   },
-  dateText: {
-    fontSize: 16,
-    color: "#007AFF",
-    marginBottom: 5,
-    fontWeight: "600",
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  card: {
+    backgroundColor: "#1E293B",
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#334155",
   },
-  levelText: { fontSize: 14, color: "#666" },
-  typeText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    marginTop: 5,
-    color: "#4CAF50",
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  routeBtn: {
-    alignSelf: "flex-start",
-    marginTop: 15,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    backgroundColor: "#E3F2FD",
+  clubName: { fontSize: 22, fontWeight: "900", color: "#F8FAFC", flex: 1 },
+  badge: {
+    backgroundColor: "rgba(0, 230, 118, 0.1)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  routeBtnText: { color: "#2196F3", fontWeight: "bold" },
-  separator: { height: 1, backgroundColor: "#eee", marginVertical: 20 },
-
+  badgeText: { fontSize: 11, fontWeight: "900", color: "#00E676" },
+  infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  infoText: {
+    fontSize: 15,
+    color: "#94A3B8",
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  routeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(0, 230, 118, 0.1)",
+    borderRadius: 12,
+  },
+  routeBtnText: { color: "#00E676", fontWeight: "900", marginLeft: 6 },
+  separator: { height: 1, backgroundColor: "#334155", marginVertical: 24 },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold" },
-  hintText: {
-    fontSize: 12,
-    color: "#007AFF",
-    marginTop: 2,
-    fontStyle: "italic",
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "900", color: "#F8FAFC" },
+  hintText: { fontSize: 12, color: "#94A3B8", marginTop: 2, fontWeight: "500" },
   shuffleBtn: {
-    backgroundColor: "#F0F0F0",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 230, 118, 0.1)",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
   },
-  shuffleBtnText: { color: "#333", fontSize: 12, fontWeight: "bold" },
-
+  shuffleBtnText: {
+    color: "#00E676",
+    fontSize: 13,
+    fontWeight: "800",
+    marginLeft: 6,
+  },
   teamsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#FAFAFA",
-    padding: 15,
-    borderRadius: 12,
+    backgroundColor: "#0B1120",
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#EEE",
+    borderColor: "#334155",
   },
   teamBox: { flex: 1 },
   teamTitle: {
     fontWeight: "900",
-    color: "#4CAF50",
-    marginBottom: 10,
+    color: "#00E676",
+    marginBottom: 12,
     fontSize: 16,
   },
-
-  // Nieuwe stijlen voor de klikbare spelers
   playerItemBox: {
-    padding: 8,
-    backgroundColor: "#fff",
-    borderRadius: 6,
-    marginBottom: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#1E293B",
+    borderRadius: 12,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#334155",
   },
-  selectedPlayerBox: { borderColor: "#007AFF", backgroundColor: "#E3F2FD" },
-  playerItemText: { color: "#555", fontSize: 14, fontWeight: "500" },
-  selectedPlayerText: { color: "#007AFF", fontWeight: "bold" },
-
+  selectedPlayerBox: {
+    borderColor: "#00E676",
+    backgroundColor: "rgba(0, 230, 118, 0.05)",
+  },
+  playerItemText: {
+    color: "#F8FAFC",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  selectedPlayerText: { color: "#00E676", fontWeight: "900" },
   vsBox: { paddingHorizontal: 15 },
-  vsText: { fontWeight: "900", color: "#CCC", fontSize: 18 },
-
+  vsText: { fontWeight: "900", color: "#334155", fontSize: 18 },
   waitingBox: {
-    backgroundColor: "#FFF3E0",
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    padding: 20,
+    borderRadius: 16,
     alignItems: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.3)",
   },
-  waitingText: { color: "#FF9800", fontWeight: "bold", marginBottom: 5 },
-
-  actionContainer: { marginTop: 15 },
+  waitingText: { color: "#FCD34D", fontWeight: "800", fontSize: 15 },
+  waitingPlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  waitingPlayerText: { color: "#E2E8F0", fontWeight: "600", marginLeft: 6 },
+  actionContainer: { marginTop: 10 },
   primaryBtn: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#00E676",
     padding: 18,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: "center",
   },
-  primaryBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  primaryBtnText: { color: "#0F172A", fontWeight: "900", fontSize: 16 },
   rowBtns: { flexDirection: "row", justifyContent: "space-between" },
-  halfBtn: { flex: 0.48, padding: 15, borderRadius: 12, alignItems: "center" },
-  chatBtn: { backgroundColor: "#9C27B0" },
-  leaveBtn: { backgroundColor: "#FF3B30" },
-  btnTextWhite: { color: "#FFF", fontWeight: "bold", fontSize: 15 },
-
+  halfBtn: {
+    flexDirection: "row",
+    flex: 0.48,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chatBtn: { backgroundColor: "#00E676" },
+  leaveBtn: { backgroundColor: "#EF4444" },
+  btnTextWhite: {
+    color: "#FFF",
+    fontWeight: "900",
+    fontSize: 15,
+    marginLeft: 8,
+  },
   alertBox: {
-    backgroundColor: "#E8F5E9",
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 15,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    padding: 20,
+    borderRadius: 16,
+    marginTop: 16,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#C8E6C9",
+    borderColor: "rgba(245, 158, 11, 0.3)",
   },
   alertText: {
-    color: "#2E7D32",
-    fontWeight: "bold",
+    color: "#FCD34D",
+    fontWeight: "700",
     textAlign: "center",
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 15,
+    lineHeight: 20,
   },
   bookBtn: {
-    backgroundColor: "#4CAF50",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  bookBtnText: { color: "#FFF", fontWeight: "bold" },
-
-  adminBtn: {
-    backgroundColor: "#333",
-    padding: 18,
+    backgroundColor: "#00E676",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     borderRadius: 12,
+    width: "100%",
     alignItems: "center",
-    marginTop: 15,
   },
-  adminBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-
+  bookBtnText: { color: "#0F172A", fontWeight: "900", fontSize: 16 },
+  adminBtn: {
+    flexDirection: "row",
+    backgroundColor: "#00E676",
+    padding: 18,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  adminBtnText: {
+    color: "#0F172A",
+    fontWeight: "900",
+    fontSize: 16,
+    marginLeft: 8,
+  },
   playedBox: {
-    backgroundColor: "#f0f0f0",
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: "#0B1120",
+    padding: 20,
+    borderRadius: 16,
     marginTop: 20,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#334155",
   },
-  playedText: { fontWeight: "bold", color: "#333", fontSize: 16 },
-
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  playedText: { fontWeight: "900", color: "#F8FAFC", fontSize: 18 },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#020617",
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15,23,42,0.9)",
+  },
+  modalContent: {
+    backgroundColor: "#1E293B",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "#334155",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    marginBottom: 8,
+    color: "#F8FAFC",
+  },
+  modalSubTitle: {
+    fontSize: 15,
+    color: "#94A3B8",
+    marginBottom: 24,
+    fontWeight: "500",
+  },
+  paymentContainer: {
+    backgroundColor: "#0B1120",
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+    marginBottom: 24,
+  },
+  input: {
+    backgroundColor: "#1E293B",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#334155",
+    marginBottom: 12,
+    color: "#F8FAFC",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  row: { flexDirection: "row" },
+  disabledBtn: { opacity: 0.5 },
+  cancelModalBtn: { marginTop: 12, padding: 16, alignItems: "center" },
+  cancelModalText: { color: "#EF4444", fontWeight: "800", fontSize: 16 },
 });

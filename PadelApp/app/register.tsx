@@ -1,4 +1,3 @@
-// Bestand: /app/register.tsx
 import React, { useState } from "react";
 import {
   StyleSheet,
@@ -10,180 +9,233 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../config/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Register() {
   const router = useRouter();
-
-  // State voor de input velden (Signals in Angular 17, useState in React)
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleRegister = async () => {
-  if (email === '' || password === '' || firstName === '') {
-    Alert.alert("Fout", "Vul alle verplichte velden in.");
-    return;
-  }
+    if (!email || !password || !firstName || !lastName) {
+      setErrorMessage("Vul alle velden in.");
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage("");
 
-  try {
-    // 1. Maak de gebruiker aan in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const user = userCredential.user;
 
-    // 2. Maak het gebruikersprofiel aan in Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      // CRUCIAAL VOOR DE OPDRACHT:
-      level: 1.5, 
-      profilePic: 'https://cdn-icons-png.flaticon.com/512/3940/3940403.png', // Standaard avatar
-      createdAt: new Date().getTime(),
-      matchesWon: 0,
-      matchesLost: 0
-    });
+      await setDoc(doc(db, "users", user.uid), {
+        firstName,
+        lastName,
+        email,
+        level: 1.5,
+        profilePic: "https://cdn-icons-png.flaticon.com/512/3940/3940403.png",
+        createdAt: new Date().getTime(),
+        matchesWon: 0,
+        matchesLost: 0,
+      });
 
-    Alert.alert("Succes", "Account aangemaakt!");
-    router.replace('/');
-  } catch (error: any) {
-    Alert.alert("Registratie mislukt", error.message);
-  }
-};
+      Alert.alert("Succes", "Je account is aangemaakt!");
+      router.replace("/");
+    } catch (error: any) {
+      setErrorMessage("Registratie mislukt. Controleer je gegevens.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: "#020617" }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.backButtonText}>← Terug</Text>
-        </TouchableOpacity>
+          <View style={styles.darkHeader}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={28} color="#F8FAFC" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Maak een account</Text>
+            <Text style={styles.headerSubtitle}>
+              Start vandaag nog met spelen
+            </Text>
+          </View>
 
-        <Text style={styles.header}>Account Aanmaken</Text>
+          <View style={styles.card}>
+            {errorMessage !== "" && (
+              <View style={styles.errorBox}>
+                <Ionicons name="warning" size={20} color="#FFF" />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            )}
 
-        {errorMessage !== "" && (
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        )}
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, { flex: 0.48 }]}>
+                <Text style={styles.label}>Voornaam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Bijv. Renzo"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 0.48 }]}>
+                <Text style={styles.label}>Achternaam</Text>
+                <TextInput
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Bijv. Bouchdig"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+            </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Voornaam:</Text>
-          <TextInput
-            style={styles.input}
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="Bijv. Renzo"
-          />
-        </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>E-mailadres</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="naam@email.com"
+                placeholderTextColor="#64748B"
+              />
+            </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Achternaam:</Text>
-          <TextInput
-            style={styles.input}
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="Bijv. Bouchdig"
-          />
-        </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Wachtwoord</Text>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="Minimaal 6 tekens"
+                placeholderTextColor="#64748B"
+              />
+            </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email:</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholder="naam@email.com"
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Wachtwoord:</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="Minimaal 6 tekens"
-          />
-        </View>
-
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Registreer</Text>
-        </TouchableOpacity>
-      </ScrollView>
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleRegister}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#0F172A" />
+              ) : (
+                <Text style={styles.buttonText}>Registreer</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: "#fff",
-    flexGrow: 1,
+  scrollContent: { flexGrow: 1, backgroundColor: "#020617", paddingBottom: 40 },
+  darkHeader: {
+    backgroundColor: "#0F172A",
+    paddingTop: 60,
+    paddingBottom: 80,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 5,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: "bold",
+  backButton: { marginBottom: 20, alignSelf: "flex-start" },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#F8FAFC",
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    color: "#94A3B8",
+    marginTop: 8,
+    fontWeight: "500",
+  },
+  card: {
+    backgroundColor: "#1E293B",
+    marginHorizontal: 20,
+    marginTop: -50,
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#334155",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EF4444",
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 20,
-    color: "#333",
   },
-  errorText: {
-    color: "red",
-    backgroundColor: "#ffe6e6",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 15,
-    fontWeight: "bold",
-  },
-  inputGroup: {
-    marginBottom: 15,
-  },
-  label: {
+  errorText: { color: "#FFF", fontWeight: "700", marginLeft: 8, flex: 1 },
+  row: { flexDirection: "row", justifyContent: "space-between" },
+  inputGroup: { marginBottom: 20 },
+  label: { fontSize: 13, marginBottom: 8, color: "#94A3B8", fontWeight: "800" },
+  input: {
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     fontSize: 16,
-    marginBottom: 5,
-    color: "#555",
+    color: "#F8FAFC",
     fontWeight: "600",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: "#f9f9f9",
-  },
   button: {
-    backgroundColor: "#4CAF50",
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: "#00E676",
+    padding: 18,
+    borderRadius: 16,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 10,
+    elevation: 4,
+    shadowColor: "#00E676",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  backButton: {
-    marginBottom: 20,
-    paddingVertical: 10,
-    alignSelf: "flex-start",
-    marginTop: 30,
-  },
-  backButtonText: {
-    color: "#007AFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  buttonDisabled: { opacity: 0.7, elevation: 0, shadowOpacity: 0 },
+  buttonText: { color: "#0F172A", fontSize: 18, fontWeight: "900" },
 });
