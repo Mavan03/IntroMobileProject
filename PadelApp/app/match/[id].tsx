@@ -97,7 +97,12 @@ export default function MatchDetail() {
   const isPast = match ? parseDateToTime(match.date) < Date.now() : false;
 
   const getPlayerDisplay = (index: number) => {
-    if (!match?.players || !match.players[index]) return "Wachten op speler...";
+    if (!match?.players || !match.players[index]) {
+      return match?.isBooked
+        ? "Vrijgehouden (Betaald)"
+        : "Wachten op speler...";
+    }
+
     const uid = match.players[index];
     const displayName = playerNames[uid] ? playerNames[uid] : "Laden...";
 
@@ -365,7 +370,15 @@ export default function MatchDetail() {
               </View>
             </View>
           ) : (
-            <View style={styles.waitingBox}>
+            <View
+              style={[
+                styles.waitingBox,
+                match.isBooked && {
+                  backgroundColor: "rgba(0, 230, 118, 0.1)",
+                  borderColor: "rgba(0, 230, 118, 0.3)",
+                },
+              ]}
+            >
               <View
                 style={{
                   flexDirection: "row",
@@ -373,21 +386,48 @@ export default function MatchDetail() {
                   marginBottom: 10,
                 }}
               >
-                <ActivityIndicator
-                  size="small"
-                  color="#F59E0B"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.waitingText}>Wachten op spelers...</Text>
+                {match.isBooked ? (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color="#00E676"
+                    style={{ marginRight: 8 }}
+                  />
+                ) : (
+                  <ActivityIndicator
+                    size="small"
+                    color="#F59E0B"
+                    style={{ marginRight: 8 }}
+                  />
+                )}
+
+                <Text
+                  style={[
+                    styles.waitingText,
+                    match.isBooked && { color: "#00E676" },
+                  ]}
+                >
+                  {match.isBooked
+                    ? "Veld is definitief geboekt!"
+                    : "Wachten op spelers..."}
+                </Text>
               </View>
-              {match.players?.map((p: string, idx: number) => (
-                <View key={p} style={styles.waitingPlayerRow}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                  <Text style={styles.waitingPlayerText}>
-                    {getPlayerDisplay(idx)}
-                  </Text>
-                </View>
-              ))}
+              {[0, 1, 2, 3].map((idx) => {
+                if (idx >= (match.players?.length || 0)) return null;
+                const p = match.players[idx];
+                return (
+                  <View key={p} style={styles.waitingPlayerRow}>
+                    <Ionicons
+                      name={match.isBooked ? "person" : "time"}
+                      size={16}
+                      color={match.isBooked ? "#00E676" : "#10B981"}
+                    />
+                    <Text style={styles.waitingPlayerText}>
+                      {getPlayerDisplay(idx)}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           )}
 
@@ -431,7 +471,7 @@ export default function MatchDetail() {
                       color="#FFF"
                     />
                     <Text style={styles.btnTextWhite}>
-                      {isCreator ? "Annuleren" : "Verlaten"}
+                      {isCreator ? "Verwijderen" : "Verlaten"}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -589,8 +629,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#1E293B",
     padding: 24,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#334155",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   cardHeader: {
     flexDirection: "row",
@@ -647,6 +690,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginLeft: 6,
   },
+
   teamsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -657,6 +701,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#334155",
   },
+
   teamBox: { flex: 1 },
   teamTitle: {
     fontWeight: "900",
