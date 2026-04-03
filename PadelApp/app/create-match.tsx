@@ -249,10 +249,16 @@ export default function CreateMatch() {
               theme={{
                 calendarBackground: "#1E293B",
                 textSectionTitleColor: "#94A3B8",
+
                 dayTextColor: "#F8FAFC",
+
+                textDisabledColor: "#334155",
+
                 todayTextColor: "#00E676",
                 monthTextColor: "#F8FAFC",
                 arrowColor: "#00E676",
+                textDayFontWeight: '400',
+                textMonthFontWeight: 'bold',
               }}
               style={styles.calendar}
             />
@@ -369,11 +375,14 @@ export default function CreateMatch() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Kies een club</Text>
-            <FlatList
-              data={PADEL_CLUBS}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 400 }}
+            >
+              {PADEL_CLUBS.map((item) => (
                 <TouchableOpacity
+                  key={item.id}
                   style={styles.modalItem}
                   onPress={() => {
                     setSelectedClub(item);
@@ -382,8 +391,9 @@ export default function CreateMatch() {
                 >
                   <Text style={styles.modalItemText}>{item.name}</Text>
                 </TouchableOpacity>
-              )}
-            />
+              ))}
+            </ScrollView>
+
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowClubPicker(false)}

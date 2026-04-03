@@ -70,24 +70,29 @@ export default function FindMatch() {
     setFilteredMatches(tempMatches);
   };
 
-  const renderMatchItem = ({ item }: { item: any }) => (
+ const renderMatchItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.matchCard}
       activeOpacity={0.8}
       onPress={() => router.push(`/match/${item.id}`)}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.clubName}>{item.club}</Text>
-        <View style={styles.badge}>
-          <Text style={styles.typeBadge}>
-            {item.isCompetitive ? "Competitief" : "Recreatief"}
-          </Text>
-        </View>
+        {/* flex: 1 toegevoegd zodat de naam de ruimte kan nemen */}
+        <Text style={[styles.clubName, { flex: 1 }]} numberOfLines={1}>
+          {item.club}
+        </Text>
       </View>
 
       <View style={styles.detailRow}>
         <Ionicons name="calendar-outline" size={16} color="#94A3B8" />
         <Text style={styles.dateText}>{item.date}</Text>
+      </View>
+
+      {/* Type badge nu hier tussenin geplaatst voor betere zichtbaarheid */}
+      <View style={[styles.badge, { alignSelf: 'flex-start', marginTop: 10 }]}>
+        <Text style={styles.typeBadge}>
+          {item.isCompetitive ? "🏆 Competitief" : "🎾 Recreatief"}
+        </Text>
       </View>
 
       <View style={styles.cardFooter}>

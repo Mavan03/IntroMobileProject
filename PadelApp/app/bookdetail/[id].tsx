@@ -172,12 +172,12 @@ export default function BookDetail() {
 
   const isFormFilled = matchDate
     ? cardNumber.trim().length > 0 &&
-      expiry.trim().length > 0 &&
-      cvv.trim().length > 0
+    expiry.trim().length > 0 &&
+    cvv.trim().length > 0
     : selectedSlot !== null &&
-      cardNumber.trim().length > 0 &&
-      expiry.trim().length > 0 &&
-      cvv.trim().length > 0;
+    cardNumber.trim().length > 0 &&
+    expiry.trim().length > 0 &&
+    cvv.trim().length > 0;
 
   const handleBooking = async () => {
     if (!isFormFilled || !auth.currentUser) {
@@ -306,18 +306,27 @@ export default function BookDetail() {
                   <Calendar
                     firstDay={1}
                     minDate={new Date().toISOString().split("T")[0]}
-                    onDayPress={(day: any) =>
-                      setSelectedDateStr(day.dateString)
-                    }
+                    onDayPress={(day: any) => setSelectedDateStr(day.dateString)}
                     markedDates={markedDates}
                     enableSwipeMonths={true}
                     theme={{
-                      calendarBackground: "#1E293B",
-                      textSectionTitleColor: "#94A3B8",
-                      dayTextColor: "#F8FAFC",
-                      todayTextColor: "#00E676",
-                      monthTextColor: "#F8FAFC",
-                      arrowColor: "#00E676",
+                      backgroundColor: '#1a1f2e',
+                      calendarBackground: '#242b3d',
+                      textSectionTitleColor: '#b6c1cd',
+                      selectedDayBackgroundColor: '#4CAF50',
+                      selectedDayTextColor: '#ffffff',
+                      todayTextColor: '#4CAF50',
+
+                      dayTextColor: '#ffffff',
+                      textDisabledColor: '#444d61',
+
+                      dotColor: '#4CAF50',
+                      selectedDotColor: '#ffffff',
+                      arrowColor: '#4CAF50',
+                      monthTextColor: '#ffffff',
+                      textDayFontWeight: '400',
+                      textMonthFontWeight: 'bold',
+                      textDayHeaderFontWeight: '300',
                     }}
                     style={styles.calendar}
                   />

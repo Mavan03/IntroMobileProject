@@ -107,7 +107,6 @@ export default function Dashboard() {
         (d) => ({ id: d.id, ...d.data() }) as any,
       );
 
-      // PERFORMANCE FIX: Haal alleen de komende 5 matches op
       const userMatches = matches
         .filter(
           (m) =>

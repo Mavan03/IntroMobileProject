@@ -107,7 +107,7 @@ export default function BookCourt() {
           imageStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16 }}
         >
           <View style={styles.distanceBadge}>
-            <Ionicons name="location" size={14} color="#FFF" />
+            <Ionicons name="location" size={14} color="#0F172A" />
             <Text style={styles.distanceText}>{distance} km</Text>
           </View>
         </ImageBackground>
@@ -129,7 +129,7 @@ export default function BookCourt() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={28} color="#111827" />
+          <Ionicons name="arrow-back" size={28} color="#F8FAFC" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Kies een club</Text>
       </View>
@@ -143,7 +143,7 @@ export default function BookCourt() {
         <>
           {errorMsg && (
             <View style={styles.warningBox}>
-              <Ionicons name="warning" size={20} color="#B45309" />
+              <Ionicons name="warning" size={20} color="#00E676" />
               <Text style={styles.warningText}>{errorMsg}</Text>
             </View>
           )}
@@ -163,33 +163,38 @@ export default function BookCourt() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F3F4F6" },
+  container: { flex: 1, backgroundColor: "#0F172A" },
   header: {
     paddingTop: 60,
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: "#FFF",
+    backgroundColor: "#0F172A",
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: "#1E293B",
   },
   backButton: { marginRight: 15 },
   headerTitle: {
     fontSize: 24,
     fontWeight: "900",
-    color: "#111827",
+    color: "#F8FAFC",
     letterSpacing: -0.5,
   },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  center: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center",
+    backgroundColor: "#0F172A" 
+  },
   loadingText: {
     marginTop: 12,
     fontSize: 15,
-    color: "#6B7280",
+    color: "#94A3B8",
     fontWeight: "600",
   },
   warningBox: {
-    backgroundColor: "#FEF3C7",
+    backgroundColor: "rgba(0, 230, 118, 0.1)",
     padding: 12,
     marginHorizontal: 20,
     marginTop: 15,
@@ -197,17 +202,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#F59E0B",
+    borderColor: "rgba(0, 230, 118, 0.3)",
   },
-  warningText: { color: "#B45309", fontWeight: "700", marginLeft: 8 },
+  warningText: { color: "#00E676", fontWeight: "700", marginLeft: 8 },
   listContainer: { padding: 20, paddingBottom: 40 },
   card: {
-    backgroundColor: "#FFF",
+    backgroundColor: "#1E293B",
     borderRadius: 16,
     marginBottom: 20,
     elevation: 4,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
@@ -221,14 +226,14 @@ const styles = StyleSheet.create({
   distanceBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(17, 24, 39, 0.7)",
+    backgroundColor: "#00E676",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
   },
   distanceText: {
     fontSize: 13,
-    color: "#FFF",
+    color: "#0F172A",
     fontWeight: "800",
     marginLeft: 4,
   },
@@ -236,7 +241,7 @@ const styles = StyleSheet.create({
   clubName: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#111827",
+    color: "#F8FAFC",
     marginBottom: 8,
   },
   actionRow: {
@@ -244,5 +249,5 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  tapText: { fontSize: 15, color: "#6B7280", fontWeight: "600" },
+  tapText: { fontSize: 15, color: "#94A3B8", fontWeight: "600" },
 });

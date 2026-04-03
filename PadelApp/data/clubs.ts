@@ -7,7 +7,7 @@ export const PADEL_CLUBS = [
     image: require("../assets/images/terEikenPadel.webp"),
     open: 8,
     close: 23,
-    closedDays: [],
+    closedDays: [0,1,2],
   },
   {
     id: "2",
@@ -18,7 +18,7 @@ export const PADEL_CLUBS = [
       "https://www.garrincha.be/assets/front/images/opengraph/garrincha.jpg",
     open: 9,
     close: 24,
-    closedDays: [],
+    closedDays: [2,4,6],
   },
   {
     id: "3",
@@ -40,7 +40,7 @@ export const PADEL_CLUBS = [
       "https://res.cloudinary.com/playtomic/image/upload/v1668870986/pro/tenants/80d478aa-3f50-4bb8-9ee2-9e3ea84ac051/1668870985772.jpg",
     open: 7,
     close: 23,
-    closedDays: [],
+    closedDays: [6],
   },
   {
     id: "5",
@@ -51,7 +51,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfN80qoMKhwiu32fWharIjj6pIUbWRFvZ9nQ&s",
     open: 8,
     close: 23,
-    closedDays: [],
+    closedDays: [3,4],
   },
   {
     id: "6",
@@ -62,7 +62,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9letfma_4_2WUOkqLtNeUYa3vGvEviGGBng&s",
     open: 9,
     close: 21,
-    closedDays: [],
+    closedDays: [1],
   },
   {
     id: "7",
@@ -73,7 +73,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTf1v8i3LYXq1JTYhmeeZV7uMRhM_S9-nui_Q&s",
     open: 10,
     close: 23,
-    closedDays: [],
+    closedDays: [0],
   },
   {
     id: "8",
@@ -84,7 +84,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSA2flVA8xJ6QNPElpIfK3tVElAmhBTv3gdhg&s",
     open: 8,
     close: 24,
-    closedDays: [],
+    closedDays: [5],
   },
   {
     id: "9",
@@ -95,7 +95,7 @@ export const PADEL_CLUBS = [
       "https://www.tcplayers.be/wp-content/uploads/2022/12/33-scaled-600x450.jpg",
     open: 9,
     close: 22,
-    closedDays: [],
+    closedDays: [6],
   },
   {
     id: "10",
@@ -106,7 +106,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQzJS9lR4ySdispVPZmzQGg9gdrOoy_T4_BBg&s",
     open: 8,
     close: 23,
-    closedDays: [],
+    closedDays: [4],
   },
   {
     id: "11",
@@ -117,7 +117,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcStAM9GDaB5cxMpFoOsFC2EntwLAK5y0s0vbA&s",
     open: 8,
     close: 23,
-    closedDays: [],
+    closedDays: [2,6],
   },
   {
     id: "12",
@@ -128,7 +128,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCHa-bgDgy9W8WFPTy8jck5UtQpQKRw_ZCeQ&s",
     open: 7,
     close: 24,
-    closedDays: [],
+    closedDays: [0,3],
   },
   {
     id: "13",
@@ -139,7 +139,7 @@ export const PADEL_CLUBS = [
       "https://static.wixstatic.com/media/89f715_44cce18807dd4b7792c37e3c028e141b~mv2.png/v1/fill/w_583,h_583,q_90,enc_avif,quality_auto/89f715_44cce18807dd4b7792c37e3c028e141b~mv2.png",
     open: 8,
     close: 23,
-    closedDays: [],
+    closedDays: [2,4],
   },
   {
     id: "14",
@@ -150,7 +150,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSvW9HYLPVAgN-6H2n_efkZYdLznk9UGjv-pw&s",
     open: 9,
     close: 22,
-    closedDays: [],
+    closedDays: [3],
   },
   {
     id: "15",
@@ -161,7 +161,7 @@ export const PADEL_CLUBS = [
       "https://www.fta-tennis.be/owp/wp-content/uploads/2019/11/LovePadel-400x270.jpg",
     open: 8,
     close: 23,
-    closedDays: [],
+    closedDays: [0],
   },
   {
     id: "16",
@@ -172,7 +172,7 @@ export const PADEL_CLUBS = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRVUC6GMb-AxvgoUWA83XzSsJs3iJTeWi-UNA&s", // Fallback image if needed
     open: 9,
     close: 22,
-    closedDays: [],
+    closedDays: [5],
   },
   {
     id: "17",
